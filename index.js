@@ -22,7 +22,12 @@ app.use(express.json());
 
 const SENHA_MESTRA = "SB2026#Mestre99";
 
-// Rota de Login / Painel Web
+// Rota raiz simples para indicar que o webserver está online
+app.get('/', (req, res) => {
+    res.send('Bot online');
+});
+
+// Rota de Login / Painel Web Completo
 app.get('/master', (req, res) => {
     res.send(`
         <!DOCTYPE html>
@@ -44,13 +49,11 @@ app.get('/master', (req, res) => {
                 .btn-blue { background-color: #3b82f6; color: white; }
                 input, select { padding: 8px; margin: 5px 0; background: #0f172a; border: 1px solid #475569; color: white; border-radius: 4px; width: 100%; box-sizing: border-box; }
                 .card { background: #0f172a; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #334155; }
-                .login-box { max-width: 400px; margin: 100px auto; background: #1e293b; padding: 30px; border-radius: 10px; text-align: center; }
             </style>
         </head>
         <body>
             <div id="app">Carregando painel...</div>
             <script>
-                // Sistema simples de senha via localStorage ou prompt
                 let senha = localStorage.getItem('senha_master');
                 if (!senha || senha !== "${SENHA_MESTRA}") {
                     senha = prompt("Digite a senha do painel:");
@@ -122,16 +125,16 @@ app.get('/master', (req, res) => {
                                         <form action="/api/bloquear" method="POST" style="display:inline-block;">
                                             <input type="hidden" name="senha" value="\${senha}">
                                             <input type="hidden" name="guildId" value="\${c.guildId}">
-                                            <input type="text" name="motivo" placeholder="Motivo do bloqueio..." style="width:120px; font-size:11px; padding:4px;" required>
-                                            <button class="btn btn-yellow">\${c.status === 'ativo' ? 'Bloquear' : 'Desbloquear'}</button>
+                                            <input type="text" name="motivo" placeholder="Motivo..." style="width:100px; font-size:11px; padding:4px;" required>
+                                            <button class="btn btn-yellow">\${c.status === 'ativo' ? 'Bloq' : 'Ativ'}</button>
                                         </form>
-                                        <form action="/api/remover" method="POST" style="display:inline;" onsubmit="return confirm('Excluir cliente?');">
+                                        <form action="/api/remover" method="POST" style="display:inline;" onsubmit="return confirm('Excluir?');">
                                             <input type="hidden" name="senha" value="\${senha}">
                                             <input type="hidden" name="guildId" value="\${c.guildId}">
-                                            <button class="btn btn-red">Excluir</button>
+                                            <button class="btn btn-red">X</button>
                                         </form>
                                     </td>
-                                \`;
+                                </tr>\`;
                             });
 
                             html += \`</table></div>\`;
