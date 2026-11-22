@@ -19,31 +19,50 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 client.commands = new Collection();
 const commandsJSON = [];
 
+// Leitura segura dos comandos para ambientes de nuvem (Render)
 const commandsPath = path.join(__dirname, 'commands');
-const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
-
-for (const file of commandFiles) {
-    const command = require(path.join(commandsPath, file));
-    client.commands.set(command.data.name, command);
-    commandsJSON.push(command.data.toJSON());
+if (fs.existsSync(commandsPath)) {
+    const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+    for (const file of commandFiles) {
+        const filePath = path.join(commandsPath, file);
+        const command = require(filePath);
+        if ('data' in command && 'execute' in command) {
+            client.commands.set(command.data.name, command);
+            commandsJSON.push(command.data.toJSON());
+        } else {
+            console.log(`[AVISO] O comando em ${filePath} está sem a propriedade 'data' ou 'execute'.`);
+        }
+    }
+} else {
+    console.log('[AVISO] Pasta "commands" não encontrada na raiz do projeto.');
 }
 
-// CORRIGIDO: mudou de 'clientReady' para 'ready'
 client.once('ready', async () => {
     console.log(`✅ Bot online como ${client.user.tag}`);
+    
+    // Registro de comandos otimizado (Global + Aviso nos Logs)
     try {
         const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
-        await rest.put(Routes.applicationCommands(client.user.id), { body: commandsJSON });
-        console.log('✅ Painéis registrados com sucesso!');
+        console.log(`Registrando ${commandsJSON.length} comandos slash...`);
+        
+        await rest.put(
+            Routes.applicationCommands(client.user.id),
+            { body: commandsJSON },
+        );
+        console.log('✅ Comandos slash registrados com sucesso globalmente!');
     } catch (error) {
-        console.error('Erro ao registrar comandos:', error);
+        console.error('❌ Erro ao registrar comandos:', error);
     }
 
     setInterval(async () => {
-        await Licenca.updateMany(
-            { status: 'ativo', dataVencimento: { $lt: new Date() } },
-            { $set: { status: 'suspenso' } }
-        );
+        try {
+            await Licenca.updateMany(
+                { status: 'ativo', dataVencimento: { $lt: new Date() } },
+                { $set: { status: 'suspenso' } }
+            );
+        } catch (e) {
+            console.error('Erro no timer de suspensão:', e);
+        }
     }, 3600000);
 });
 
@@ -64,7 +83,7 @@ client.on('interactionCreate', async interaction => {
         } catch (error) {
             console.error(error);
             if (!interaction.replied && !interaction.deferred) {
-                await interaction.reply({ content: '❌ Erro interno.', flags: MessageFlags.Ephemeral });
+                await interaction.reply({ content: '❌ Erro interno ao executar o comando.', flags: MessageFlags.Ephemeral });
             }
         }
     }
@@ -396,7 +415,7 @@ mongoose.connect(process.env.MONGO_URI)
     .catch(err => console.error('❌ Erro ao conectar no MongoDB:', err));
 
 // Servidor HTTP para o Render / UptimeRobot
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('Bot Online!');
