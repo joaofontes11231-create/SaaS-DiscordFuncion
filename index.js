@@ -18,8 +18,8 @@ const { criarPagamentoPix, verificarPagamento } = require('./utils/mercadopago')
 const client = new Client({ 
     intents: [
         GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildGuilds, // Caso precise de dados adicionais de guilds
-        GatewayIntentBits.GuildMessages
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent // (Adicione esta se faltar para ler mensagens)
     ] 
 });
 client.commands = new Collection();
