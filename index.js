@@ -2,6 +2,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const mongoose = require('mongoose');
+const http = require('http');
 const {
     Client, GatewayIntentBits, Collection, REST, Routes,
     EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder,
@@ -27,7 +28,8 @@ for (const file of commandFiles) {
     commandsJSON.push(command.data.toJSON());
 }
 
-client.once('clientReady', async () => {
+// CORRIGIDO: mudou de 'clientReady' para 'ready'
+client.once('ready', async () => {
     console.log(`✅ Bot online como ${client.user.tag}`);
     try {
         const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
@@ -385,15 +387,16 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
+// Conexão ao MongoDB e Login
 mongoose.connect(process.env.MONGO_URI)
     .then(() => {
         console.log('✅ Conectado ao MongoDB com segurança!');
         client.login(process.env.DISCORD_TOKEN);
     })
     .catch(err => console.error('❌ Erro ao conectar no MongoDB:', err));
-    const http = require('http');
-const PORT = process.env.PORT || 3000;
 
+// Servidor HTTP para o Render / UptimeRobot
+const PORT = process.env.PORT || 3000;
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('Bot Online!');
