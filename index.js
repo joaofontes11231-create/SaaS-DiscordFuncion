@@ -22,12 +22,12 @@ app.use(express.json());
 
 const SENHA_MESTRA = "SB2026#Mestre99";
 
-// Rota raiz simples para indicar que o webserver está online
+// Mudamos o / para abrir direto o painel (assim não tem erro de rota)
 app.get('/', (req, res) => {
-    res.send('Bot online');
+    res.redirect('/master');
 });
 
-// Rota do Painel Web Master
+// Painel Master na rota /master e também na raiz se redirecionar
 app.get('/master', (req, res) => {
     res.send(`
         <!DOCTYPE html>
