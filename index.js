@@ -2,7 +2,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const mongoose = require('mongoose');
-const http = require('http');
+const express = require('express');
 const {
     Client, GatewayIntentBits, Collection, REST, Routes,
     EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder,
@@ -15,7 +15,201 @@ const Nota = require('./models/Nota');
 const { criptografar, descriptografar } = require('./utils/seguranca');
 const { criarPagamentoPix, verificarPagamento } = require('./utils/mercadopago');
 
-// 1. Configuração correta e completa das Intents
+// --- CONFIGURAÇÃO DO EXPRESS (PAINEL WEB) ---
+const app = express();
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+
+const SENHA_MESTRA = "SB2026#Mestre99";
+
+// Rota de Login / Painel Web
+app.get('/master', (req, res) => {
+    res.send(`
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head>
+            <meta charset="UTF-8">
+            <title>Painel Executivo — SaaS Bot</title>
+            <style>
+                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+                .container { max-width: 1000px; margin: auto; background: #1e293b; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+                h1, h2 { color: #38bdf8; border-bottom: 2px solid #334155; padding-bottom: 10px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #0f172a; border-radius: 8px; overflow: hidden; }
+                th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #334155; font-size: 14px; }
+                th { background-color: #1e293b; color: #38bdf8; }
+                .btn { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; text-decoration: none; display: inline-block; font-size: 12px; margin: 2px; }
+                .btn-green { background-color: #22c55e; color: white; }
+                .btn-yellow { background-color: #eab308; color: black; }
+                .btn-red { background-color: #ef4444; color: white; }
+                .btn-blue { background-color: #3b82f6; color: white; }
+                input, select { padding: 8px; margin: 5px 0; background: #0f172a; border: 1px solid #475569; color: white; border-radius: 4px; width: 100%; box-sizing: border-box; }
+                .card { background: #0f172a; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #334155; }
+                .login-box { max-width: 400px; margin: 100px auto; background: #1e293b; padding: 30px; border-radius: 10px; text-align: center; }
+            </style>
+        </head>
+        <body>
+            <div id="app">Carregando painel...</div>
+            <script>
+                // Sistema simples de senha via localStorage ou prompt
+                let senha = localStorage.getItem('senha_master');
+                if (!senha || senha !== "${SENHA_MESTRA}") {
+                    senha = prompt("Digite a senha do painel:");
+                    if (senha === "${SENHA_MESTRA}") {
+                        localStorage.setItem('senha_master', senha);
+                        location.reload();
+                    } else {
+                        alert("Senha incorreta!");
+                        document.body.innerHTML = "<h2 style='text-align:center;margin-top:100px;color:red;'>Acesso Negado</h2>";
+                    }
+                } else {
+                    fetch('/api/dados?senha=' + encodeURIComponent(senha))
+                        .then(res => res.json())
+                        .then(data => {
+                            if(data.erro) { alert(data.erro); localStorage.removeItem('senha_master'); location.reload(); return; }
+                            
+                            let html = \`<div class="container">
+                                <h1>👑 Painel Executivo — SaaS Bot</h1>
+                                <p>Status do Sistema: <span style="color: \${data.manutencao ? 'orange' : 'lightgreen'}">\${data.manutencao ? '🛠️ MANUTENÇÃO ATIVA' : '🟢 ONLINE'}</span></p>
+                                
+                                <div class="card">
+                                    <h3>Ações Rápidas</h3>
+                                    <form action="/api/manutencao" method="POST" style="display:inline;">
+                                        <input type="hidden" name="senha" value="\${senha}">
+                                        <button class="btn \${data.manutencao ? 'btn-green' : 'btn-yellow'}">\${data.manutencao ? 'Desativar Manutenção' : 'Ativar Manutenção'}</button>
+                                    </form>
+                                </div>
+
+                                <div class="card">
+                                    <h3>Cadastrar / Renovar Cliente</h3>
+                                    <form action="/api/salvar" method="POST">
+                                        <input type="hidden" name="senha" value="\${senha}">
+                                        <label>ID do Servidor Discord:</label>
+                                        <input type="text" name="guildId" required placeholder="Ex: 1185637652855267348">
+                                        <label>Nome do Cliente:</label>
+                                        <input type="text" name="nomeCliente" required placeholder="Ex: Nome ou @">
+                                        <label>Status de Pagamento:</label>
+                                        <select name="pago">
+                                            <option value="true">🟢 Pago</option>
+                                            <option value="false">🔴 Pendente</option>
+                                        </select>
+                                        <button class="btn btn-green" style="margin-top:10px;">Salvar / Adicionar</button>
+                                    </form>
+                                </div>
+
+                                <h2>📋 Clientes Cadastrados</h2>
+                                <table>
+                                    <tr>
+                                        <th>Cliente / Servidor</th>
+                                        <th>Status / Pagamento</th>
+                                        <th>Dias (Total / Restantes)</th>
+                                        <th>Motivo Bloqueio</th>
+                                        <th>Ações</th>
+                                    </tr>\`;
+
+                            data.clientes.forEach(c => {
+                                let totalDias = Math.ceil((new Date(c.dataVencimento) - new Date(c.dataEntrada)) / (1000 * 60 * 60 * 24));
+                                let diasRestantes = Math.ceil((new Date(c.dataVencimento) - new Date()) / (1000 * 60 * 60 * 24));
+                                let statusCor = c.status === 'ativo' ? '🟢 Ativo' : '🔴 Bloqueado';
+                                let pagoStr = c.pago ? '💳 Pago' : '⏳ Pendente';
+
+                                html += \`<tr>
+                                    <td><strong>\${c.nomeCliente}</strong><br><small>\${c.guildId}</small></td>
+                                    <td>\${statusCor}<br><small>\${pagoStr}</small></td>
+                                    <td>Total: \${totalDias > 0 ? totalDias : 30}d<br>Restam: <strong>\${diasRestantes}d</strong></td>
+                                    <td>\${c.motivoBloqueio || 'Nenhum'}</td>
+                                    <td>
+                                        <a href="/api/renovar?id=\${c.guildId}&senha=\${senha}" class="btn btn-blue">+30 Dias</a>
+                                        <form action="/api/bloquear" method="POST" style="display:inline-block;">
+                                            <input type="hidden" name="senha" value="\${senha}">
+                                            <input type="hidden" name="guildId" value="\${c.guildId}">
+                                            <input type="text" name="motivo" placeholder="Motivo do bloqueio..." style="width:120px; font-size:11px; padding:4px;" required>
+                                            <button class="btn btn-yellow">\${c.status === 'ativo' ? 'Bloquear' : 'Desbloquear'}</button>
+                                        </form>
+                                        <form action="/api/remover" method="POST" style="display:inline;" onsubmit="return confirm('Excluir cliente?');">
+                                            <input type="hidden" name="senha" value="\${senha}">
+                                            <input type="hidden" name="guildId" value="\${c.guildId}">
+                                            <button class="btn btn-red">Excluir</button>
+                                        </form>
+                                    </td>
+                                \`;
+                            });
+
+                            html += \`</table></div>\`;
+                            document.getElementById('app').innerHTML = html;
+                        });
+                }
+            </script>
+        </body>
+        </html>
+    `);
+});
+
+// Rotas de API do Painel Web
+app.get('/api/dados', async (req, res) => {
+    if (req.query.senha !== SENHA_MESTRA) return res.json({ erro: "Senha inválida" });
+    const clientes = await Licenca.find().sort({ dataVencimento: 1 });
+    res.json({ clientes, manutencao: global.MODO_MANUTENCAO || false });
+});
+
+app.post('/api/manutencao', (req, res) => {
+    if (req.body.senha !== SENHA_MESTRA) return res.status(403).send("Senha incorreta");
+    global.MODO_MANUTENCAO = !global.MODO_MANUTENCAO;
+    res.redirect('/master');
+});
+
+app.post('/api/salvar', async (req, res) => {
+    if (req.body.senha !== SENHA_MESTRA) return res.status(403).send("Senha incorreta");
+    const { guildId, nomeCliente, pago } = req.body;
+    const agora = new Date();
+    const vencimento = new Date();
+    vencimento.setDate(vencimento.getDate() + 30);
+
+    await Licenca.findOneAndUpdate(
+        { guildId },
+        { nomeCliente, dataEntrada: agora, dataVencimento: vencimento, status: 'ativo', pago: pago === 'true', motivoBloqueio: '' },
+        { upsert: true }
+    );
+    res.redirect('/master');
+});
+
+app.get('/api/renovar', async (req, res) => {
+    if (req.query.senha !== SENHA_MESTRA) return res.status(403).send("Senha incorreta");
+    const lic = await Licenca.findOne({ guildId: req.query.id });
+    if (lic) {
+        let novaData = lic.dataVencimento > new Date() ? new Date(lic.dataVencimento) : new Date();
+        novaData.setDate(novaData.getDate() + 30);
+        lic.dataVencimento = novaData;
+        lic.status = 'ativo';
+        await lic.save();
+    }
+    res.redirect('/master');
+});
+
+app.post('/api/bloquear', async (req, res) => {
+    if (req.body.senha !== SENHA_MESTRA) return res.status(403).send("Senha incorreta");
+    const { guildId, motivo } = req.body;
+    const lic = await Licenca.findOne({ guildId });
+    if (lic) {
+        if (lic.status === 'ativo') {
+            lic.status = 'suspenso';
+            lic.motivoBloqueio = motivo;
+        } else {
+            lic.status = 'ativo';
+            lic.motivoBloqueio = '';
+        }
+        await lic.save();
+    }
+    res.redirect('/master');
+});
+
+app.post('/api/remover', async (req, res) => {
+    if (req.body.senha !== SENHA_MESTRA) return res.status(403).send("Senha incorreta");
+    await Licenca.findOneAndDelete({ guildId: req.body.guildId });
+    res.redirect('/master');
+});
+
+
+// --- CONFIGURAÇÃO DO BOT DO DISCORD ---
 const client = new Client({ 
     intents: [
         GatewayIntentBits.Guilds,
@@ -28,7 +222,6 @@ const client = new Client({
 client.commands = new Collection();
 const commandsJSON = [];
 
-// Leitura segura dos comandos para ambientes de nuvem (Render)
 const commandsPath = path.join(__dirname, 'commands');
 if (fs.existsSync(commandsPath)) {
     const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
@@ -44,30 +237,13 @@ if (fs.existsSync(commandsPath)) {
 
 client.once('ready', async () => {
     console.log(`✅ Bot online como ${client.user.tag}`);
-    
-    // Registro de comandos global
     try {
         const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
-        await rest.put(
-            Routes.applicationCommands(client.user.id),
-            { body: commandsJSON },
-        );
-        console.log('✅ Comandos slash registrados com sucesso globalmente!');
+        await rest.put(Routes.applicationCommands(client.user.id), { body: commandsJSON });
+        console.log('✅ Comandos slash registrados globalmente!');
     } catch (error) {
         console.error('❌ Erro ao registrar comandos:', error);
     }
-
-    // Timer de suspensão de licenças
-    setInterval(async () => {
-        try {
-            await Licenca.updateMany(
-                { status: 'ativo', dataVencimento: { $lt: new Date() } },
-                { $set: { status: 'suspenso' } }
-            );
-        } catch (e) {
-            console.error('Erro no timer de suspensão:', e);
-        }
-    }, 3600000);
 });
 
 client.on('interactionCreate', async interaction => {
@@ -78,7 +254,6 @@ client.on('interactionCreate', async interaction => {
         return;
     }
 
-    // 1. Comandos Slash
     if (interaction.isChatInputCommand()) {
         const command = client.commands.get(interaction.commandName);
         if (!command) return;
@@ -87,311 +262,93 @@ client.on('interactionCreate', async interaction => {
         } catch (error) {
             console.error(error);
             if (!interaction.replied && !interaction.deferred) {
-                await interaction.reply({ content: '❌ Erro interno ao executar o comando.', flags: MessageFlags.Ephemeral });
+                await interaction.reply({ content: '❌ Erro interno.', flags: MessageFlags.Ephemeral });
             }
         }
     }
 
-    // 2. Botões do Painel Master
+    // Botões do Painel Master no Discord
     if (interaction.isButton() && interaction.customId.startsWith('master_')) {
         if (interaction.user.id !== process.env.MASTER_ID) return interaction.reply({ content: '❌ Acesso negado.', flags: MessageFlags.Ephemeral });
 
         if (interaction.customId === 'master_ver_clientes') {
             await interaction.deferReply({ flags: MessageFlags.Ephemeral });
             const clientes = await Licenca.find().sort({ dataVencimento: 1 });
-
-            if (!clientes.length) {
-                return interaction.editReply({ content: '📋 Nenhum cliente cadastrado no sistema no momento.' });
-            }
+            if (!clientes.length) return interaction.editReply({ content: '📋 Nenhum cliente cadastrado.' });
 
             const embed = new EmbedBuilder()
-                .setTitle('📋 Aba Exclusiva: Todos os Clientes')
-                .setColor('#3498db')
-                .setDescription('Abaixo estão todos os clientes cadastrados:');
+                .setTitle('📋 Todos os Clientes & Status de Pagamento')
+                .setColor('#3498db');
 
             clientes.forEach((c, index) => {
-                const statusIcone = c.status === 'ativo' ? '🟢' : '🔴';
-                const dataEntradaReal = c.dataEntrada ? new Date(c.dataEntrada) : new Date();
-                const tsEntrada = Math.floor(dataEntradaReal.getTime() / 1000);
-                
-                const dataVencimentoReal = c.dataVencimento ? new Date(c.dataVencimento) : new Date();
-                const tsVence = Math.floor(dataVencimentoReal.getTime() / 1000);
-
+                let diasRestantes = Math.ceil((new Date(c.dataVencimento) - new Date()) / (1000 * 60 * 60 * 24));
                 embed.addFields({
-                    name: `${index + 1}. ${statusIcone} ${c.nomeCliente}`,
-                    value: `🆔 **ID do Servidor:** \`${c.guildId}\`\n📥 **Entrada:** <t:${tsEntrada}:d>\n⏳ **Vencimento:** <t:${tsVence}:d> (<t:${tsVence}:R>)`
+                    name: `${index + 1}. ${c.status === 'ativo' ? '🟢' : '🔴'} ${c.nomeCliente} (${c.pago ? 'Pago' : 'Pendente'})`,
+                    value: `🆔 \`${c.guildId}\`\n⏳ Restam: **${diasRestantes} dias**\n🔒 Motivo: \`${c.motivoBloqueio || 'Nenhum'}\``
                 });
             });
-
             return interaction.editReply({ embeds: [embed] });
         }
 
         if (interaction.customId === 'master_emergencia') {
             global.MODO_MANUTENCAO = !global.MODO_MANUTENCAO;
-            return interaction.reply({
-                content: global.MODO_MANUTENCAO ? '🚨 **TRAVA GERAL ATIVADA!**' : '✅ **SISTEMA LIBERADO!**',
-                flags: MessageFlags.Ephemeral
-            });
+            return interaction.reply({ content: global.MODO_MANUTENCAO ? '🚨 **TRAVA GERAL ATIVADA!**' : '✅ **SISTEMA LIBERADO!**', flags: MessageFlags.Ephemeral });
         }
 
         if (interaction.customId === 'master_notas') {
             const notaAtual = await Nota.findOne({ donoId: process.env.MASTER_ID });
-            const modal = new ModalBuilder().setCustomId('modal_master_notas').setTitle('Meu Bloco de Notas Privado');
-            modal.addComponents(
-                new ActionRowBuilder().addComponents(
-                    new TextInputBuilder()
-                        .setCustomId('texto_nota')
-                        .setLabel('Suas anotações')
-                        .setStyle(TextInputStyle.Paragraph)
-                        .setValue(notaAtual ? notaAtual.conteudo : '')
-                        .setRequired(true)
-                )
-            );
+            const modal = new ModalBuilder().setCustomId('modal_master_notas').setTitle('Bloco de Notas');
+            modal.addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('texto_nota').setLabel('Notas').setStyle(TextInputStyle.Paragraph).setValue(notaAtual ? notaAtual.conteudo : '').setRequired(true)));
             return interaction.showModal(modal);
         }
 
         if (interaction.customId === 'master_add') {
-            const modal = new ModalBuilder().setCustomId('modal_master_add').setTitle('Cadastrar Novo Cliente');
+            const modal = new ModalBuilder().setCustomId('modal_master_add').setTitle('Cadastrar Cliente');
             modal.addComponents(
                 new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('guild_id').setLabel('ID do Servidor').setStyle(TextInputStyle.Short).setRequired(true)),
-                new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('nome_cliente').setLabel('Nome ou @ do Cliente').setStyle(TextInputStyle.Short).setRequired(true))
+                new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('nome_cliente').setLabel('Nome do Cliente').setStyle(TextInputStyle.Short).setRequired(true))
             );
             return interaction.showModal(modal);
         }
 
-        if (interaction.customId === 'master_renovar' || interaction.customId === 'master_bloquear' || interaction.customId === 'master_remover') {
-            const titulos = {
-                master_renovar: 'Renovar Licença (+30 dias)',
-                master_bloquear: 'Bloquear / Desbloquear Servidor',
-                master_remover: 'Remover Cliente da Lista'
-            };
-            const modal = new ModalBuilder().setCustomId(`modal_${interaction.customId}`).setTitle(titulos[interaction.customId]);
+        if (interaction.customId === 'master_bloquear') {
+            const modal = new ModalBuilder().setCustomId('modal_master_bloquear').setTitle('Bloquear/Desbloquear com Motivo');
             modal.addComponents(
-                new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('guild_id').setLabel('ID do Servidor').setStyle(TextInputStyle.Short).setRequired(true))
+                new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('guild_id').setLabel('ID do Servidor').setStyle(TextInputStyle.Short).setRequired(true)),
+                new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('motivo').setLabel('Motivo do Bloqueio').setStyle(TextInputStyle.Short).setRequired(true))
             );
             return interaction.showModal(modal);
         }
     }
 
-    // 3. Respostas dos Formulários Master
-    if (interaction.isModalSubmit() && interaction.customId.startsWith('modal_master_')) {
+    if (interaction.isModalSubmit() && interaction.customId === 'modal_master_bloquear') {
         if (interaction.user.id !== process.env.MASTER_ID) return;
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-
-        if (interaction.customId === 'modal_master_notas') {
-            const texto = interaction.fields.getTextInputValue('texto_nota');
-            await Nota.findOneAndUpdate(
-                { donoId: process.env.MASTER_ID },
-                { conteudo: texto, atualizadoEm: new Date() },
-                { upsert: true }
-            );
-            return interaction.editReply('📝 **Bloco de notas salvo com sucesso!**');
-        }
-
         const guildId = interaction.fields.getTextInputValue('guild_id').trim();
-
-        if (interaction.customId === 'modal_master_add') {
-            const nomeCliente = interaction.fields.getTextInputValue('nome_cliente').trim();
-            const agora = new Date();
-            const vencimento = new Date();
-            vencimento.setDate(vencimento.getDate() + 30);
-
-            await Licenca.findOneAndUpdate(
-                { guildId },
-                { nomeCliente, dataEntrada: agora, dataVencimento: vencimento, status: 'ativo' },
-                { upsert: true }
-            );
-            return interaction.editReply(`✅ **${nomeCliente}** (\`${guildId}\`) adicionado por 30 dias!`);
-        }
-
-        if (interaction.customId === 'modal_master_renovar') {
-            const lic = await Licenca.findOne({ guildId });
-            if (!lic) return interaction.editReply('❌ Servidor não encontrado.');
-            const novaData = lic.dataVencimento > new Date() ? new Date(lic.dataVencimento) : new Date();
-            novaData.setDate(novaData.getDate() + 30);
-            lic.dataVencimento = novaData;
+        const motivo = interaction.fields.getTextInputValue('motivo').trim();
+        const lic = await Licenca.findOne({ guildId });
+        if (!lic) return interaction.editReply('❌ Servidor não encontrado.');
+        
+        if (lic.status === 'ativo') {
+            lic.status = 'suspenso';
+            lic.motivoBloqueio = motivo;
+        } else {
             lic.status = 'ativo';
-            await lic.save();
-            return interaction.editReply(`🔄 **${lic.nomeCliente}** renovado por +30 dias!`);
+            lic.motivoBloqueio = '';
         }
-
-        if (interaction.customId === 'modal_master_bloquear') {
-            const lic = await Licenca.findOne({ guildId });
-            if (!lic) return interaction.editReply('❌ Servidor não encontrado.');
-            lic.status = lic.status === 'ativo' ? 'suspenso' : 'ativo';
-            await lic.save();
-            return interaction.editReply(`${lic.status === 'ativo' ? '🟢 Desbloqueado' : '🔒 Bloqueado'}: **${lic.nomeCliente}** (\`${guildId}\`).`);
-        }
-
-        if (interaction.customId === 'modal_master_remover') {
-            const lic = await Licenca.findOneAndDelete({ guildId });
-            if (!lic) return interaction.editReply('❌ Servidor não encontrado.');
-            return interaction.editReply(`🗑️ **${lic.nomeCliente}** (\`${guildId}\`) removido da lista.`);
-        }
-    }
-
-    // 4. Botões do Painel da Loja do Cliente
-    if (interaction.isButton() && interaction.customId.startsWith('loja_')) {
-        if (!interaction.guild) return;
-        const licenca = await Licenca.findOne({ guildId: interaction.guild.id });
-        if (!licenca || licenca.status !== 'ativo' || licenca.dataVencimento < new Date()) {
-            return interaction.reply({ content: '⚠️ Assinatura inativa ou vencida.', flags: MessageFlags.Ephemeral });
-        }
-
-        if (interaction.customId === 'loja_definir_logs') {
-            licenca.canalLogsId = interaction.channel.id;
-            await licenca.save();
-            return interaction.reply({ content: `📜 Canal definido para receber os logs de vendas!`, flags: MessageFlags.Ephemeral });
-        }
-
-        if (interaction.customId === 'loja_config_mp') {
-            const modal = new ModalBuilder().setCustomId('modal_loja_mp').setTitle('Configurar Mercado Pago');
-            modal.addComponents(
-                new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('token_mp').setLabel('Access Token').setStyle(TextInputStyle.Short).setRequired(true))
-            );
-            return interaction.showModal(modal);
-        }
-
-        if (interaction.customId === 'loja_criar_prod') {
-            const modal = new ModalBuilder().setCustomId('modal_loja_prod').setTitle('Criar Novo Produto');
-            modal.addComponents(
-                new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('nome').setLabel('Nome do Produto').setStyle(TextInputStyle.Short).setRequired(true)),
-                new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('preco').setLabel('Preço em R$ (ex: 10.50)').setStyle(TextInputStyle.Short).setRequired(true)),
-                new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('descricao').setLabel('Descrição').setStyle(TextInputStyle.Paragraph).setRequired(true))
-            );
-            return interaction.showModal(modal);
-        }
-
-        if (interaction.customId === 'loja_add_estoque') {
-            const modal = new ModalBuilder().setCustomId('modal_loja_estoque').setTitle('Abastecer Estoque');
-            modal.addComponents(
-                new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('nome').setLabel('Nome Exato do Produto').setStyle(TextInputStyle.Short).setRequired(true)),
-                new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('itens').setLabel('Cole os itens (1 por linha)').setStyle(TextInputStyle.Paragraph).setRequired(true))
-            );
-            return interaction.showModal(modal);
-        }
-
-        if (interaction.customId === 'loja_postar_painel') {
-            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-            const produtos = await Produto.find({ guildId: interaction.guild.id });
-            if (!produtos.length) return interaction.editReply('❌ Crie pelo menos 1 produto antes de postar a loja.');
-
-            const embed = new EmbedBuilder()
-                .setTitle(`🛒 Loja Oficial — ${interaction.guild.name}`)
-                .setDescription('Escolha o produto desejado no menu abaixo para gerar o Pix:')
-                .setColor('#00b0f4');
-
-            const opcoes = produtos.map(p => ({
-                label: `${p.nome} — R$ ${p.preco.toFixed(2)}`,
-                description: `Estoque: ${p.estoque.length} un.`,
-                value: p._id.toString()
-            }));
-
-            const row = new ActionRowBuilder().addComponents(
-                new StringSelectMenuBuilder().setCustomId('selecionar_produto').setPlaceholder('Selecione um produto...').addOptions(opcoes)
-            );
-
-            await interaction.channel.send({ embeds: [embed], components: [row] });
-            return interaction.editReply('✅ Painel de vendas postado neste canal!');
-        }
-    }
-
-    // 5. Modais da Loja
-    if (interaction.isModalSubmit() && interaction.customId.startsWith('modal_loja_')) {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-        const licenca = await Licenca.findOne({ guildId: interaction.guild.id });
-        if (!licenca || licenca.status !== 'ativo') return interaction.editReply('⚠️ Assinatura inativa.');
-
-        if (interaction.customId === 'modal_loja_mp') {
-            const token = interaction.fields.getTextInputValue('token_mp').trim();
-            licenca.mpTokenCriptografado = criptografar(token);
-            await licenca.save();
-            return interaction.editReply('🔐 Token salvo com sucesso!');
-        }
-
-        if (interaction.customId === 'modal_loja_prod') {
-            const nome = interaction.fields.getTextInputValue('nome').trim();
-            const preco = parseFloat(interaction.fields.getTextInputValue('preco').replace(',', '.'));
-            const descricao = interaction.fields.getTextInputValue('descricao').trim();
-
-            if (isNaN(preco) || preco <= 0) return interaction.editReply('❌ Preço inválido.');
-
-            await Produto.create({ guildId: interaction.guild.id, nome, preco, descricao });
-            return interaction.editReply(`✅ Produto **${nome}** criado!`);
-        }
-
-        if (interaction.customId === 'modal_loja_estoque') {
-            const nome = interaction.fields.getTextInputValue('nome').trim();
-            const itensRaw = interaction.fields.getTextInputValue('itens');
-            const lista = itensRaw.split('\n').map(i => i.trim()).filter(i => i.length > 0);
-
-            const produto = await Produto.findOne({ guildId: interaction.guild.id, nome });
-            if (!produto) return interaction.editReply('❌ Produto não encontrado.');
-
-            produto.estoque.push(...lista);
-            await produto.save();
-            return interaction.editReply(`📦 **+${lista.length}** itens adicionados em **${nome}**.`);
-        }
-    }
-
-    // 6. Compra pelo Menu Público
-    if (interaction.isStringSelectMenu() && interaction.customId === 'selecionar_produto') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-
-        const licenca = await Licenca.findOne({ guildId: interaction.guild.id });
-        if (!licenca || licenca.status !== 'ativo') return interaction.editReply('⚠️ Loja suspensa.');
-
-        const produtoId = interaction.values[0];
-        const produto = await Produto.findOne({ _id: produtoId, guildId: interaction.guild.id });
-        if (!produto || produto.estoque.length === 0) return interaction.editReply('❌ Produto esgotado!');
-
-        const tokenMp = descriptografar(licenca.mpTokenCriptografado);
-        const pix = await criarPagamentoPix(tokenMp, produto.nome, produto.preco, `${interaction.guild.id}_${interaction.user.id}`);
-        if (!pix) return interaction.editReply('❌ Erro ao gerar Pix.');
-
-        const embedPix = new EmbedBuilder()
-            .setTitle(`💠 Pagamento Pix — ${produto.nome}`)
-            .setDescription(`**Valor:** R$ ${produto.preco.toFixed(2)}\n\nPague o código abaixo:\n\`\`\`${pix.qrCode}\`\`\``)
-            .setColor('#00ff88');
-
-        await interaction.editReply({ embeds: [embedPix] });
-
-        let tentativas = 0;
-        const intervalo = setInterval(async () => {
-            tentativas++;
-            if (tentativas > 120) return clearInterval(intervalo);
-
-            const status = await verificarPagamento(tokenMp, pix.id);
-            if (status === 'approved') {
-                clearInterval(intervalo);
-
-                const produtoAtualizado = await Produto.findOneAndUpdate(
-                    { _id: produtoId, 'estoque.0': { $exists: true } },
-                    { $pop: { estoque: -1 } },
-                    { new: false }
-                );
-
-                if (!produtoAtualizado || produtoAtualizado.estoque.length === 0) return;
-
-                const itemEntregue = produtoAtualizado.estoque[0];
-                await interaction.user.send(`🎉 **Compra Aprovada!**\n\`\`\`${itemEntregue}\`\`\``).catch(() => {});
-            }
-        }, 5000);
+        await lic.save();
+        return interaction.editReply(`🔒 Status alterado para **${lic.status}**. Motivo: ${motivo}`);
     }
 });
 
-// Inicialização segura e independente
+// Banco de Dados e Servidor HTTP juntos
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('✅ Conectado ao MongoDB com segurança!'))
-    .catch(err => console.error('❌ Erro ao conectar no MongoDB:', err));
+    .then(() => console.log('✅ Conectado ao MongoDB!'))
+    .catch(err => console.error('❌ Erro no MongoDB:', err));
 
 client.login(process.env.DISCORD_TOKEN);
 
-// Servidor HTTP para o Render / UptimeRobot
-const PORT = process.env.PORT || 10000;
-http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Bot Online!');
-}).listen(PORT, () => {
-    console.log(`Servidor rodando na porta ${PORT}`);
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => {
+    console.log(`🌐 Painel Web rodando na porta ${PORT}`);
 });
