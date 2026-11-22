@@ -392,7 +392,11 @@ mongoose.connect(process.env.MONGO_URI)
     })
     .catch(err => console.error('❌ Erro ao conectar no MongoDB:', err));
     const http = require('http');
+const PORT = process.env.PORT || 3000;
+
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Bot Vendas Pro Online!');
-}).listen(process.env.PORT || 3000);
+    res.end('Bot Online!');
+}).listen(PORT, () => {
+    console.log(`Servidor rodando na porta ${PORT}`);
+});
