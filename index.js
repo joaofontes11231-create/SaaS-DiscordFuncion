@@ -27,7 +27,7 @@ app.get('/', (req, res) => {
     res.send('Bot online');
 });
 
-// Rota de Login / Painel Web Completo
+// Rota do Painel Web Master
 app.get('/master', (req, res) => {
     res.send(`
         <!DOCTYPE html>
@@ -346,12 +346,12 @@ client.on('interactionCreate', async interaction => {
 
 // Banco de Dados e Servidor HTTP juntos
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('✅ Conectado ao MongoDB!'))
+    .then(() => console.log('✅ Conectado ao MongoDB com segurança!'))
     .catch(err => console.error('❌ Erro no MongoDB:', err));
 
 client.login(process.env.DISCORD_TOKEN);
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
-    console.log(`🌐 Painel Web rodando na porta ${PORT}`);
+    console.log(`Servidor rodando na porta ${PORT}`);
 });
