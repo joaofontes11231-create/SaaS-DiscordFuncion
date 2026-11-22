@@ -15,7 +15,13 @@ const Nota = require('./models/Nota');
 const { criptografar, descriptografar } = require('./utils/seguranca');
 const { criarPagamentoPix, verificarPagamento } = require('./utils/mercadopago');
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({ 
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildGuilds, // Caso precise de dados adicionais de guilds
+        GatewayIntentBits.GuildMessages
+    ] 
+});
 client.commands = new Collection();
 const commandsJSON = [];
 
