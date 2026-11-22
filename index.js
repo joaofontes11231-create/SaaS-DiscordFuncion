@@ -15,13 +15,16 @@ const Nota = require('./models/Nota');
 const { criptografar, descriptografar } = require('./utils/seguranca');
 const { criarPagamentoPix, verificarPagamento } = require('./utils/mercadopago');
 
+// 1. Configuração correta e completa das Intents
 const client = new Client({ 
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent // (Adicione esta se faltar para ler mensagens)
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildMembers
     ] 
 });
+
 client.commands = new Collection();
 const commandsJSON = [];
 
@@ -35,22 +38,16 @@ if (fs.existsSync(commandsPath)) {
         if ('data' in command && 'execute' in command) {
             client.commands.set(command.data.name, command);
             commandsJSON.push(command.data.toJSON());
-        } else {
-            console.log(`[AVISO] O comando em ${filePath} está sem a propriedade 'data' ou 'execute'.`);
         }
     }
-} else {
-    console.log('[AVISO] Pasta "commands" não encontrada na raiz do projeto.');
 }
 
 client.once('ready', async () => {
     console.log(`✅ Bot online como ${client.user.tag}`);
     
-    // Registro de comandos otimizado (Global + Aviso nos Logs)
+    // Registro de comandos global
     try {
         const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
-        console.log(`Registrando ${commandsJSON.length} comandos slash...`);
-        
         await rest.put(
             Routes.applicationCommands(client.user.id),
             { body: commandsJSON },
@@ -60,6 +57,7 @@ client.once('ready', async () => {
         console.error('❌ Erro ao registrar comandos:', error);
     }
 
+    // Timer de suspensão de licenças
     setInterval(async () => {
         try {
             await Licenca.updateMany(
@@ -75,7 +73,7 @@ client.once('ready', async () => {
 client.on('interactionCreate', async interaction => {
     if (global.MODO_MANUTENCAO && interaction.user.id !== process.env.MASTER_ID) {
         if (interaction.isRepliable()) {
-            return interaction.reply({ content: '🛠️ **Sistema em manutenção temporária.** Tente novamente em instantes.', flags: MessageFlags.Ephemeral });
+            return interaction.reply({ content: '🛠️ **Sistema em manutenção temporária.**', flags: MessageFlags.Ephemeral });
         }
         return;
     }
@@ -109,7 +107,7 @@ client.on('interactionCreate', async interaction => {
             const embed = new EmbedBuilder()
                 .setTitle('📋 Aba Exclusiva: Todos os Clientes')
                 .setColor('#3498db')
-                .setDescription('Abaixo estão todos os clientes cadastrados, com suas datas e IDs de servidores:');
+                .setDescription('Abaixo estão todos os clientes cadastrados:');
 
             clientes.forEach((c, index) => {
                 const statusIcone = c.status === 'ativo' ? '🟢' : '🔴';
@@ -131,7 +129,7 @@ client.on('interactionCreate', async interaction => {
         if (interaction.customId === 'master_emergencia') {
             global.MODO_MANUTENCAO = !global.MODO_MANUTENCAO;
             return interaction.reply({
-                content: global.MODO_MANUTENCAO ? '🚨 **TRAVA GERAL ATIVADA!** Todas as lojas foram pausadas.' : '✅ **SISTEMA LIBERADO!**',
+                content: global.MODO_MANUTENCAO ? '🚨 **TRAVA GERAL ATIVADA!**' : '✅ **SISTEMA LIBERADO!**',
                 flags: MessageFlags.Ephemeral
             });
         }
@@ -143,7 +141,7 @@ client.on('interactionCreate', async interaction => {
                 new ActionRowBuilder().addComponents(
                     new TextInputBuilder()
                         .setCustomId('texto_nota')
-                        .setLabel('Suas anotações (salva automático)')
+                        .setLabel('Suas anotações')
                         .setStyle(TextInputStyle.Paragraph)
                         .setValue(notaAtual ? notaAtual.conteudo : '')
                         .setRequired(true)
@@ -155,7 +153,7 @@ client.on('interactionCreate', async interaction => {
         if (interaction.customId === 'master_add') {
             const modal = new ModalBuilder().setCustomId('modal_master_add').setTitle('Cadastrar Novo Cliente');
             modal.addComponents(
-                new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('guild_id').setLabel('ID do Servidor do Cliente').setStyle(TextInputStyle.Short).setRequired(true)),
+                new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('guild_id').setLabel('ID do Servidor').setStyle(TextInputStyle.Short).setRequired(true)),
                 new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('nome_cliente').setLabel('Nome ou @ do Cliente').setStyle(TextInputStyle.Short).setRequired(true))
             );
             return interaction.showModal(modal);
@@ -234,6 +232,7 @@ client.on('interactionCreate', async interaction => {
 
     // 4. Botões do Painel da Loja do Cliente
     if (interaction.isButton() && interaction.customId.startsWith('loja_')) {
+        if (!interaction.guild) return;
         const licenca = await Licenca.findOne({ guildId: interaction.guild.id });
         if (!licenca || licenca.status !== 'ativo' || licenca.dataVencimento < new Date()) {
             return interaction.reply({ content: '⚠️ Assinatura inativa ou vencida.', flags: MessageFlags.Ephemeral });
@@ -242,13 +241,13 @@ client.on('interactionCreate', async interaction => {
         if (interaction.customId === 'loja_definir_logs') {
             licenca.canalLogsId = interaction.channel.id;
             await licenca.save();
-            return interaction.reply({ content: `📜 Canal <#${interaction.channel.id}> definido para receber os logs de vendas!`, flags: MessageFlags.Ephemeral });
+            return interaction.reply({ content: `📜 Canal definido para receber os logs de vendas!`, flags: MessageFlags.Ephemeral });
         }
 
         if (interaction.customId === 'loja_config_mp') {
             const modal = new ModalBuilder().setCustomId('modal_loja_mp').setTitle('Configurar Mercado Pago');
             modal.addComponents(
-                new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('token_mp').setLabel('Access Token de Produção').setStyle(TextInputStyle.Short).setRequired(true))
+                new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('token_mp').setLabel('Access Token').setStyle(TextInputStyle.Short).setRequired(true))
             );
             return interaction.showModal(modal);
         }
@@ -258,7 +257,7 @@ client.on('interactionCreate', async interaction => {
             modal.addComponents(
                 new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('nome').setLabel('Nome do Produto').setStyle(TextInputStyle.Short).setRequired(true)),
                 new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('preco').setLabel('Preço em R$ (ex: 10.50)').setStyle(TextInputStyle.Short).setRequired(true)),
-                new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('descricao').setLabel('Descrição do Produto').setStyle(TextInputStyle.Paragraph).setRequired(true))
+                new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('descricao').setLabel('Descrição').setStyle(TextInputStyle.Paragraph).setRequired(true))
             );
             return interaction.showModal(modal);
         }
@@ -279,12 +278,12 @@ client.on('interactionCreate', async interaction => {
 
             const embed = new EmbedBuilder()
                 .setTitle(`🛒 Loja Oficial — ${interaction.guild.name}`)
-                .setDescription('Escolha o produto desejado no menu abaixo para gerar o Pix automático:')
+                .setDescription('Escolha o produto desejado no menu abaixo para gerar o Pix:')
                 .setColor('#00b0f4');
 
             const opcoes = produtos.map(p => ({
                 label: `${p.nome} — R$ ${p.preco.toFixed(2)}`,
-                description: `Estoque: ${p.estoque.length} un. | ${p.descricao.slice(0, 50)}`,
+                description: `Estoque: ${p.estoque.length} un.`,
                 value: p._id.toString()
             }));
 
@@ -297,7 +296,7 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
-    // 5. Respostas dos Formulários da Loja do Cliente
+    // 5. Modais da Loja
     if (interaction.isModalSubmit() && interaction.customId.startsWith('modal_loja_')) {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const licenca = await Licenca.findOne({ guildId: interaction.guild.id });
@@ -307,7 +306,7 @@ client.on('interactionCreate', async interaction => {
             const token = interaction.fields.getTextInputValue('token_mp').trim();
             licenca.mpTokenCriptografado = criptografar(token);
             await licenca.save();
-            return interaction.editReply('🔐 Token do Mercado Pago criptografado e salvo com sucesso!');
+            return interaction.editReply('🔐 Token salvo com sucesso!');
         }
 
         if (interaction.customId === 'modal_loja_prod') {
@@ -318,7 +317,7 @@ client.on('interactionCreate', async interaction => {
             if (isNaN(preco) || preco <= 0) return interaction.editReply('❌ Preço inválido.');
 
             await Produto.create({ guildId: interaction.guild.id, nome, preco, descricao });
-            return interaction.editReply(`✅ Produto **${nome}** (R$ ${preco.toFixed(2)}) criado!`);
+            return interaction.editReply(`✅ Produto **${nome}** criado!`);
         }
 
         if (interaction.customId === 'modal_loja_estoque') {
@@ -331,20 +330,16 @@ client.on('interactionCreate', async interaction => {
 
             produto.estoque.push(...lista);
             await produto.save();
-            return interaction.editReply(`📦 **+${lista.length}** itens adicionados em **${nome}** (Total: ${produto.estoque.length}).`);
+            return interaction.editReply(`📦 **+${lista.length}** itens adicionados em **${nome}**.`);
         }
     }
 
-    // 6. Compra pelo Menu Público da Loja
+    // 6. Compra pelo Menu Público
     if (interaction.isStringSelectMenu() && interaction.customId === 'selecionar_produto') {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         const licenca = await Licenca.findOne({ guildId: interaction.guild.id });
-        if (!licenca || licenca.status !== 'ativo' || licenca.dataVencimento < new Date()) {
-            return interaction.editReply('⚠️ Esta loja está temporariamente suspensa.');
-        }
-
-        if (!licenca.mpTokenCriptografado) return interaction.editReply('❌ O dono desta loja ainda não configurou o Mercado Pago.');
+        if (!licenca || licenca.status !== 'ativo') return interaction.editReply('⚠️ Loja suspensa.');
 
         const produtoId = interaction.values[0];
         const produto = await Produto.findOne({ _id: produtoId, guildId: interaction.guild.id });
@@ -352,11 +347,11 @@ client.on('interactionCreate', async interaction => {
 
         const tokenMp = descriptografar(licenca.mpTokenCriptografado);
         const pix = await criarPagamentoPix(tokenMp, produto.nome, produto.preco, `${interaction.guild.id}_${interaction.user.id}`);
-        if (!pix) return interaction.editReply('❌ Erro ao gerar Pix. Verifique o Token do Mercado Pago.');
+        if (!pix) return interaction.editReply('❌ Erro ao gerar Pix.');
 
         const embedPix = new EmbedBuilder()
             .setTitle(`💠 Pagamento Pix — ${produto.nome}`)
-            .setDescription(`**Valor:** R$ ${produto.preco.toFixed(2)}\n\nCopie o código **Pix Copia e Cola** abaixo e pague no banco. A entrega é automática:\n\`\`\`${pix.qrCode}\`\`\``)
+            .setDescription(`**Valor:** R$ ${produto.preco.toFixed(2)}\n\nPague o código abaixo:\n\`\`\`${pix.qrCode}\`\`\``)
             .setColor('#00ff88');
 
         await interaction.editReply({ embeds: [embedPix] });
@@ -376,49 +371,21 @@ client.on('interactionCreate', async interaction => {
                     { new: false }
                 );
 
-                if (!produtoAtualizado || produtoAtualizado.estoque.length === 0) {
-                    return interaction.user.send(`⚠️ Pagamento aprovado, mas o estoque acabou segundos antes. ID: \`${pix.id}\``).catch(() => {});
-                }
+                if (!produtoAtualizado || produtoAtualizado.estoque.length === 0) return;
 
                 const itemEntregue = produtoAtualizado.estoque[0];
-
-                const embedEntrega = new EmbedBuilder()
-                    .setTitle('🎉 Compra Aprovada!')
-                    .setDescription(`Obrigado por comprar na **${interaction.guild.name}**!\n\n**Produto:** ${produto.nome}\n**Produto / Key:**\n\`\`\`${itemEntregue}\`\`\``)
-                    .setColor('#00ff88');
-
-                await interaction.user.send({ embeds: [embedEntrega] }).catch(() => {
-                    interaction.followUp({ content: `✅ Pagamento aprovado! Sua DM estava fechada, aqui está:\n\`\`\`${itemEntregue}\`\`\``, flags: MessageFlags.Ephemeral });
-                });
-
-                if (licenca.canalLogsId) {
-                    const canalLogs = await client.channels.fetch(licenca.canalLogsId).catch(() => null);
-                    if (canalLogs) {
-                        const embedLog = new EmbedBuilder()
-                            .setTitle('💰 Nova Venda Realizada!')
-                            .addFields(
-                                { name: 'Comprador', value: `<@${interaction.user.id}> (\`${interaction.user.tag}\`)`, inline: true },
-                                { name: 'Produto', value: produto.nome, inline: true },
-                                { name: 'Valor', value: `R$ ${produto.preco.toFixed(2)}`, inline: true },
-                                { name: 'ID Mercado Pago', value: `\`${pix.id}\``, inline: false }
-                            )
-                            .setColor('#00ff88')
-                            .setTimestamp();
-                        canalLogs.send({ embeds: [embedLog] }).catch(() => {});
-                    }
-                }
+                await interaction.user.send(`🎉 **Compra Aprovada!**\n\`\`\`${itemEntregue}\`\`\``).catch(() => {});
             }
         }, 5000);
     }
 });
 
-// Conexão ao MongoDB e Login
+// Inicialização segura e independente
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => {
-        console.log('✅ Conectado ao MongoDB com segurança!');
-        client.login(process.env.DISCORD_TOKEN);
-    })
+    .then(() => console.log('✅ Conectado ao MongoDB com segurança!'))
     .catch(err => console.error('❌ Erro ao conectar no MongoDB:', err));
+
+client.login(process.env.DISCORD_TOKEN);
 
 // Servidor HTTP para o Render / UptimeRobot
 const PORT = process.env.PORT || 10000;
