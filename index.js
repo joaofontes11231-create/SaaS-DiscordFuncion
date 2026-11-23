@@ -355,3 +355,39 @@ const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
     console.log(`Servidor rodando na porta ${PORT}`);
 });
+
+const Licenca = require('./models/Licenca');
+
+client.on('guildCreate', async (guild) => {
+    try {
+        // Verifica se já existe licença para este servidor
+        let licenca = await Licenca.findOne({ guildId: guild.id });
+
+        if (!licenca) {
+            // Cria bloqueada por padrão até você aprovar no painel web
+            let vencimentoPadrao = new Date();
+            vencimentoPadrao.setDate(vencimentoPadrao.getDate() + 3); // 3 dias de teste ou zerado
+
+            licenca = await Licenca.create({
+                guildId: guild.id,
+                nomeCliente: guild.name,
+                avatarUrl: guild.iconURL() || '',
+                status: 'suspenso',
+                pago: false,
+                dataVencimento: vencimentoPadrao,
+                motivoBloqueio: 'Aguardando liberação e pagamento.'
+            });
+        }
+
+        // Tenta achar um canal de texto para mandar a mensagem obrigatória
+        const canalChat = guild.channels.cache.find(c => c.type === 0 && c.permissionsFor(guild.members.me).has('SendMessages'));
+        
+        if (canalChat) {
+            canalChat.send(`🤖 **Robô de vendas automáticas adicionado no servidor.**
+- **Estado do Robô:** 🔴 Desligado (Bloqueado).
+*Para ativar o sistema do robô de vendas automáticas acesse:* https://discord.gg/ZQzv7U3Vnw *e entre em contato com o suporte para ativar.*`);
+        }
+    } catch (error) {
+        console.error("Erro no evento guildCreate:", error);
+    }
+});
