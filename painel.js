@@ -20,12 +20,12 @@ app.get('/', (req, res) => {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Acesso Master — SaaS Bot</title>
+            <title>Master Control — SaaS Bot Vendas</title>
             <style>
                 * { box-sizing: border-box; margin: 0; padding: 0; }
                 body { 
                     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
-                    background: radial-gradient(circle at center, #1c1810 0%, #0b0a08 100%); 
+                    background-color: #0b0f19; 
                     color: #f1f5f9; 
                     min-height: 100vh; 
                     display: flex; 
@@ -34,62 +34,62 @@ app.get('/', (req, res) => {
                     padding: 20px; 
                 }
                 
-                /* Tela de Login Dourada Igual à Imagem */
+                /* Tela de Login Clean (Preto e Branco com Destaque Azul) */
                 .login-card {
                     width: 100%;
-                    max-width: 460px;
-                    background: #14151a;
-                    border: 1px solid #6b5324;
+                    max-width: 420px;
+                    background: #111827;
+                    border: 1px solid #1f2937;
                     border-radius: 16px;
-                    padding: 44px 36px;
-                    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 20px rgba(212, 168, 79, 0.08);
+                    padding: 40px 32px;
+                    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
                     text-align: center;
                 }
                 .login-card h1 {
-                    color: #e5b348;
-                    font-size: 26px;
+                    color: #ffffff;
+                    font-size: 24px;
                     font-weight: 700;
-                    margin-bottom: 28px;
-                    letter-spacing: 0.3px;
+                    margin-bottom: 8px;
+                }
+                .login-card p {
+                    color: #94a3b8;
+                    font-size: 14px;
+                    margin-bottom: 24px;
                 }
                 .login-input {
                     width: 100%;
-                    padding: 15px 18px;
-                    background: #0f1014;
-                    border: 1px solid #3f3829;
+                    padding: 14px 16px;
+                    background: #0b0f19;
+                    border: 1px solid #334155;
                     border-radius: 10px;
                     color: #fff;
                     font-size: 15px;
                     outline: none;
-                    margin-bottom: 20px;
+                    margin-bottom: 16px;
                     transition: 0.2s;
                 }
-                .login-input::placeholder {
-                    color: #787a82;
-                }
                 .login-input:focus {
-                    border-color: #e5b348;
-                    box-shadow: 0 0 0 3px rgba(229, 179, 72, 0.15);
+                    border-color: #3b82f6;
+                    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
                 }
                 .login-btn {
                     width: 100%;
-                    padding: 15px;
-                    background: linear-gradient(180deg, #ecc05c 0%, #d29d38 100%);
+                    padding: 14px;
+                    background: #3b82f6;
                     border: none;
                     border-radius: 10px;
-                    color: #111111;
-                    font-size: 16px;
-                    font-weight: 700;
+                    color: #ffffff;
+                    font-size: 15px;
+                    font-weight: 600;
                     cursor: pointer;
                     transition: 0.2s;
                 }
                 .login-btn:hover {
-                    filter: brightness(1.08);
-                    transform: translateY(-1px);
+                    background: #2563eb;
                 }
                 .erro-box {
                     background: rgba(239, 68, 68, 0.15);
-                    border: 1px solid rgba(239, 68, 68, 0.4);
+                    border: 1px solid rgba(239, 68, 68, 0.3);
                     color: #f87171;
                     padding: 10px;
                     border-radius: 8px;
@@ -98,45 +98,48 @@ app.get('/', (req, res) => {
                     display: none;
                 }
 
-                /* Estilos do Painel Após Login */
+                /* Dashboard Master */
                 .dashboard { width: 100%; max-width: 1250px; margin: auto; align-self: flex-start; }
-                .topbar { display: flex; justify-content: space-between; align-items: center; background: #14151a; padding: 20px 28px; border-radius: 14px; border: 1px solid #3f3829; margin-bottom: 24px; flex-wrap: wrap; gap: 15px; }
-                .topbar h2 { font-size: 20px; color: #e5b348; }
+                .topbar { display: flex; justify-content: space-between; align-items: center; background: #111827; padding: 20px 28px; border-radius: 14px; border: 1px solid #1f2937; margin-bottom: 24px; flex-wrap: wrap; gap: 15px; }
+                .topbar h2 { font-size: 20px; color: #fff; }
                 .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
-                .stat-card { background: #14151a; padding: 20px; border-radius: 14px; border: 1px solid #272932; }
+                .stat-card { background: #111827; padding: 20px; border-radius: 14px; border: 1px solid #1f2937; }
                 .stat-card span { font-size: 12px; color: #94a3b8; text-transform: uppercase; font-weight: 600; }
                 .stat-card h3 { font-size: 28px; margin-top: 8px; color: #fff; }
-                .panel-box { background: #14151a; padding: 24px; border-radius: 14px; border: 1px solid #272932; margin-bottom: 24px; }
-                .panel-box h3 { font-size: 16px; margin-bottom: 16px; color: #e5b348; }
+                .panel-box { background: #111827; padding: 24px; border-radius: 14px; border: 1px solid #1f2937; margin-bottom: 24px; }
+                .panel-box h3 { font-size: 16px; margin-bottom: 16px; color: #38bdf8; }
                 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
-                .form-control { width: 100%; padding: 11px 14px; background: #0f1014; border: 1px solid #333642; border-radius: 8px; color: #fff; font-size: 14px; outline: none; }
-                .form-control:focus { border-color: #e5b348; }
+                .form-control { width: 100%; padding: 11px 14px; background: #0b0f19; border: 1px solid #334155; border-radius: 8px; color: #fff; font-size: 14px; outline: none; }
+                .form-control:focus { border-color: #3b82f6; }
                 .btn { padding: 10px 16px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; transition: 0.2s; }
-                .btn-gold { background: linear-gradient(180deg, #ecc05c 0%, #d29d38 100%); color: #111; }
-                .btn-blue { background: #2563eb; color: white; }
+                .btn-blue { background: #3b82f6; color: white; }
+                .btn-green { background: #10b981; color: white; }
                 .btn-yellow { background: #f59e0b; color: #000; }
                 .btn-red { background: #ef4444; color: white; }
-                .btn-ghost { background: #1f2128; color: #e2e8f0; border: 1px solid #333642; }
+                .btn-ghost { background: #1f2937; color: #e2e8f0; border: 1px solid #374151; }
                 .table-responsive { overflow-x: auto; }
                 table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-                th { text-align: left; padding: 14px; background: #0f1014; color: #94a3b8; font-size: 12px; text-transform: uppercase; border-bottom: 1px solid #272932; }
-                td { padding: 16px 14px; border-bottom: 1px solid #272932; font-size: 14px; vertical-align: middle; }
-                .avatar { width: 48px; height: 48px; border-radius: 12px; object-fit: cover; background: #1f2128; }
+                th { text-align: left; padding: 14px; background: #0b0f19; color: #94a3b8; font-size: 12px; text-transform: uppercase; border-bottom: 1px solid #1f2937; }
+                td { padding: 16px 14px; border-bottom: 1px solid #1f2937; font-size: 14px; vertical-align: middle; }
+                .avatar { width: 48px; height: 48px; border-radius: 12px; object-fit: cover; background: #1f2937; }
                 .badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-block; }
                 .badge-green { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
                 .badge-red { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
                 .badge-yellow { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
-                .copy-btn { background: #1f2128; border: none; color: #94a3b8; padding: 3px 7px; border-radius: 5px; cursor: pointer; font-size: 11px; margin-left: 5px; }
+                .copy-btn { background: #1f2937; border: none; color: #94a3b8; padding: 3px 7px; border-radius: 5px; cursor: pointer; font-size: 11px; margin-left: 5px; }
+                .copy-btn:hover { color: #fff; background: #374151; }
             </style>
         </head>
         <body>
 
+            <!-- Tela de Login Master -->
             <div class="login-card" id="loginCard">
                 <h1>Acesso Master</h1>
+                <p>Painel Administrativo do SaaS Bot</p>
                 <div class="erro-box" id="erroBox">Senha incorreta. Tente novamente.</div>
                 <form onsubmit="entrarPainel(event)">
                     <input type="password" id="senhaInput" class="login-input" placeholder="Senha do proprietário" required autofocus>
-                    <button type="submit" class="login-btn" id="btnEntrar">Entrar</button>
+                    <button type="submit" class="login-btn" id="btnEntrar">Entrar no Painel</button>
                 </form>
             </div>
 
@@ -160,7 +163,7 @@ app.get('/', (req, res) => {
                         .then(data => {
                             if (data.erro) {
                                 erro.style.display = 'block';
-                                btn.innerText = 'Entrar';
+                                btn.innerText = 'Entrar no Painel';
                             } else {
                                 localStorage.setItem('senha_master', s);
                                 renderizarDashboard(s, data.clientes);
@@ -169,7 +172,7 @@ app.get('/', (req, res) => {
                         .catch(() => {
                             erro.innerText = 'Erro ao conectar com o servidor.';
                             erro.style.display = 'block';
-                            btn.innerText = 'Entrar';
+                            btn.innerText = 'Entrar no Painel';
                         });
                 }
 
@@ -187,7 +190,7 @@ app.get('/', (req, res) => {
                     let html = \`
                     <div class="dashboard">
                         <div class="topbar">
-                            <h2>👑 Painel Master — Controle Total</h2>
+                            <h2>👑 Painel Master — SaaS Bot</h2>
                             <div style="display:flex; gap:10px;">
                                 <button class="btn btn-ghost" onclick="location.reload()">🔄 Atualizar</button>
                                 <button class="btn btn-red" onclick="sair()">Sair</button>
@@ -198,11 +201,11 @@ app.get('/', (req, res) => {
                             <div class="stat-card"><span>Total de Lojas</span><h3>\${total}</h3></div>
                             <div class="stat-card"><span>Lojas Ativas</span><h3 style="color:#34d399;">\${ativos}</h3></div>
                             <div class="stat-card"><span>Bloqueadas / Pendentes</span><h3 style="color:#f87171;">\${bloqueados}</h3></div>
-                            <div class="stat-card"><span>Aluguéis Pagos</span><h3 style="color:#e5b348;">\${pagos}</h3></div>
+                            <div class="stat-card"><span>Aluguéis Pagos</span><h3 style="color:#38bdf8;">\${pagos}</h3></div>
                         </div>
 
                         <div class="panel-box">
-                            <h3>➕ Cadastrar ou Liberar Nova Loja</h3>
+                            <h3>➕ Cadastrar ou Liberar Nova Loja (Aluguel)</h3>
                             <form action="/api/salvar" method="POST">
                                 <input type="hidden" name="senha" value="\${senha}">
                                 <div class="form-grid">
@@ -215,7 +218,7 @@ app.get('/', (req, res) => {
                                         <input type="text" name="donoId" class="form-control" required placeholder="Ex: 458923749123456789">
                                     </div>
                                     <div>
-                                        <label style="font-size:12px; color:#94a3b8;">Nome da Loja / Robô *</label>
+                                        <label style="font-size:12px; color:#94a3b8;">Nome da Loja / Servidor *</label>
                                         <input type="text" name="nomeCliente" class="form-control" required placeholder="Ex: Império Store">
                                     </div>
                                     <div>
@@ -223,19 +226,19 @@ app.get('/', (req, res) => {
                                         <input type="text" name="avatarUrl" class="form-control" placeholder="https://...">
                                     </div>
                                     <div>
-                                        <label style="font-size:12px; color:#94a3b8;">Status Inicial</label>
+                                        <label style="font-size:12px; color:#94a3b8;">Status de Pagamento</label>
                                         <select name="pago" class="form-control">
                                             <option value="true">🟢 Pago & Liberado (+30 Dias)</option>
                                             <option value="false">🔴 Pendente / Bloqueado</option>
                                         </select>
                                     </div>
                                 </div>
-                                <button type="submit" class="btn btn-gold" style="margin-top:16px; padding:12px 24px;">Salvar e Ativar Loja</button>
+                                <button type="submit" class="btn btn-green" style="margin-top:16px; padding:12px 24px;">Salvar e Ativar Licença</button>
                             </form>
                         </div>
 
                         <div class="panel-box">
-                            <h3>📋 Lojas e Donos Cadastrados (\${total})</h3>
+                            <h3>📋 Lojas e Aluguéis Ativos (\${total})</h3>
                             <div class="table-responsive">
                                 <table>
                                     <thead>
@@ -261,7 +264,7 @@ app.get('/', (req, res) => {
                             let perfilDonoHtml = c.donoId 
                                 ? \`<div>
                                     <strong>ID: \${c.donoId}</strong> <button class="copy-btn" onclick="copiarTexto('\${c.donoId}')">Copiar</button><br>
-                                    <a href="https://discord.com/users/\${c.donoId}" target="_blank" style="color:#e5b348; font-size:12px; text-decoration:none;">🔗 Abrir Perfil Discord ↗</a>
+                                    <a href="https://discord.com/users/\${c.donoId}" target="_blank" style="color:#38bdf8; font-size:12px; text-decoration:none;">🔗 Abrir Perfil Discord ↗</a>
                                    </div>\`
                                 : '<span style="color:#64748b;">Não vinculado</span>';
 
@@ -280,7 +283,7 @@ app.get('/', (req, res) => {
                                     <td>\${perfilDonoHtml}</td>
                                     <td>
                                         \${statusHtml} \${pagoHtml}<br>
-                                        <small style="color:#94a3b8; display:block; margin-top:4px;">\${c.motivoBloqueio ? 'Motivo: ' + c.motivoBloqueio : 'Operando normalmente'}</small>
+                                        <small style="color:#94a3b8; display:block; margin-top:4px;">\${c.motivoBloqueio ? 'Motivo: ' + c.motivoBloqueio : 'Sistema Operando'}</small>
                                     </td>
                                     <td>
                                         <strong style="font-size:16px; color:\${diasRestantes > 5 ? '#34d399' : '#f87171'};">
@@ -290,7 +293,7 @@ app.get('/', (req, res) => {
                                     </td>
                                     <td>
                                         <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center;">
-                                            <a href="/api/renovar?id=\${c.guildId}&senha=\${senha}" class="btn btn-blue">+30d</a>
+                                            <a href="/api/renovar?id=\${c.guildId}&senha=\${senha}" class="btn btn-blue" title="Adicionar +30 dias">+30d</a>
                                             <form action="/api/bloquear" method="POST" style="display:inline-flex; gap:4px;">
                                                 <input type="hidden" name="senha" value="\${senha}">
                                                 <input type="hidden" name="guildId" value="\${c.guildId}">
